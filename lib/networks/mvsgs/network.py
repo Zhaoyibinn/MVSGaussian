@@ -13,7 +13,12 @@ import numpy as np
 import PIL
 import cv2
 from .utils import write_cam, save_pfm, visualize_depth
+import copy
 
+from plyfile import PlyData, PlyElement
+
+def inverse_sigmoid(x):
+    return torch.log(x/(1-x))
 
 class Network(nn.Module):
     
@@ -79,7 +84,7 @@ class Network(nn.Module):
         ret['rgb'] = rgb.permute(0, 2, 3, 1).reshape(B, H*W, 3)
 
 
-    def forward(self, batch):
+    def forward(self, batch,idx):
         B, _, _, H_img, W_img = batch['src_inps'].shape
         if not cfg.save_video:
             feats = self.forward_feat(batch['src_inps'])
@@ -88,21 +93,92 @@ class Network(nn.Module):
             depth, std, near_far = None, None, None
             for i in range(cfg.mvsgs.cas_config.num):
                 H, W = int(H_img*cfg.mvsgs.cas_config.render_scale[i]), int(W_img*cfg.mvsgs.cas_config.render_scale[i])
-                feature_volume, depth_values, near_far = utils.build_feature_volume(
-                        feats[f'level_{i}'],
-                        batch,
-                        D=cfg.mvsgs.cas_config.volume_planes[i],
-                        depth=depth,
-                        std=std,
-                        near_far=near_far,
-                        level=i)
+                try:
+                    feature_volume, depth_values, near_far = utils.build_feature_volume(
+                            feats[f'level_{i}'],
+                            batch,
+                            D=cfg.mvsgs.cas_config.volume_planes[i],
+                            depth=depth,
+                            std=std,
+                            near_far=near_far,
+                            level=i)
+                except:
+                    feature_volume, depth_values, near_far = utils.build_feature_volume(
+                            feats[f'level_{i}'],
+                            batch,
+                            D=cfg.mvsgs.cas_config.volume_planes[i],
+                            depth=std,
+                            std=std,
+                            near_far=near_far,
+                            level=i)
                 feature_volume, depth_prob = getattr(self, f'cost_reg_{i}')(feature_volume)
                 # 进入一个CostRegNet得到可能体depth_prob
                 depth, std = utils.depth_regression(depth_prob, depth_values, i, batch)
                 # 回归得到深度
+                img_origin = cv2.cvtColor(np.uint8((batch['tar_img'][0].cpu().detach().numpy()) * 255),cv2.COLOR_RGB2BGR)
+                img_origin = cv2.resize(img_origin,(depth.shape[2],depth.shape[1]))
+
+
+                depth_path = f"data/SPARSE/scan24/depth_dust3r/{idx:04d}.tiff"
+                depth_dust3r = cv2.imread(depth_path,cv2.IMREAD_ANYDEPTH)
+                # img = cv2.resize(img, self.input_h_w[::-1], interpolation=cv2.INTER_AREA)
+
+                original_width , original_height = depth_dust3r.shape[1] , depth_dust3r.shape[0]
+                target_width , target_height = depth.shape[2] , depth.shape[1]
+
+                original_ratio = original_width / original_height
+                target_ratio = target_width / target_height
+                if original_ratio > target_ratio:
+                    # 原始图像更宽，按高度缩放
+                    scale = target_height / original_height
+                    new_width = int(original_width * scale)
+                    new_height = target_height
+                else:
+                    # 原始图像更高，按宽度缩放
+                    scale = target_width / original_width
+                    new_width = target_width
+                    new_height = int(original_height * scale)
+                depth_dust3r = cv2.resize(
+                    depth_dust3r, 
+                    (new_width, new_height), 
+                    interpolation=cv2.INTER_AREA  # 缩小用INTER_AREA效果好
+                )
+
+                start_x = (new_width - target_width) // 2
+                start_y = (new_height - target_height) // 2
+
+                depth_dust3r = depth_dust3r[
+                    start_y:start_y + target_height,
+                    start_x:start_x + target_width
+                ]
+                depth_dust3r[depth_dust3r == 0] = 10
+                depth_dust3r = torch.tensor(depth_dust3r)
+                if cfg.mvsgs.cas_config.depth_inv[i]:
+                    depth_dust3r = 1. / torch.clamp_min(depth_dust3r, 1e-6)
+                depth_dust3r_vis = np.uint8(np.clip(cv2.cvtColor(depth_dust3r.cpu().detach().numpy() * 100, cv2.COLOR_GRAY2BGR),0,255))
+
+                depth_vis = cv2.cvtColor(depth[0].cpu().detach().numpy() * 100*cfg.mvsgs.scale_factor , cv2.COLOR_GRAY2BGR)
+                depth_vis = np.uint8(np.clip(depth_vis,0,255))
+                vis_add_img_dust3r = cv2.addWeighted(img_origin, 0.1, depth_dust3r_vis, 0.9, 0)
+                vis_add_img = cv2.addWeighted(img_origin, 0.1, depth_vis, 0.9, 0)
+                if cfg.mvsgs.cas_config.depth_inv[i]:
+                    depth_dust3r_torch_align = (depth_dust3r / cfg.mvsgs.scale_factor).unsqueeze(0).cuda()
+                    std_dust3r = torch.ones_like(std)*10000
+                else:
+                    depth_dust3r_torch_align = (depth_dust3r * cfg.mvsgs.scale_factor).unsqueeze(0).cuda()
+                    std_dust3r = torch.ones_like(std)/10000
+                
                 if not cfg.mvsgs.cas_config.render_if[i]:
                     continue
+
+                # depth = depth_dust3r_torch_align
+                # std = std_dust3r
+
+
                 rays = utils.build_rays(depth, std, batch, self.training, near_far, i)
+                # rays_dust3r = utils.build_rays(depth_dust3r_torch_align, std_dust3r, batch, self.training, near_far, i)
+
+                
                 # 在原本ray的基础上增加了rays_near_far和near_far
                 im_feat_level = cfg.mvsgs.cas_config.render_im_feat_level[i]
                 output = self.batchify_rays(
@@ -116,6 +192,41 @@ class Network(nn.Module):
                         )
                 ret_i = {}
                 world_xyz, rot_out, scale_out, opacity_out, color_out, rgb_vr = output
+
+                xyz = world_xyz.squeeze().detach().cpu().numpy()
+                normals = np.zeros_like(xyz)
+                color = color_out.squeeze().detach().cpu().numpy()
+                C0 = 0.28209479177387814
+                color = (color - 0.5) / C0
+                opacities = inverse_sigmoid(opacity_out).squeeze(0).detach().cpu().numpy()
+                scale = torch.log(scale_out).squeeze().detach().cpu().numpy()
+                rotation = rot_out.squeeze().detach().cpu().numpy()
+
+                l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
+                # All channels except the 3 DC
+                for ii in range(3):
+                    l.append('f_dc_{}'.format(ii))
+                l.append('opacity')
+                for ii in range(3):
+                    l.append('scale_{}'.format(ii))
+                for ii in range(4):
+                    l.append('rot_{}'.format(ii))
+
+                dtype_full = [(attribute, 'f4') for attribute in l]
+
+
+                elements = np.empty(xyz.shape[0], dtype=dtype_full)
+                scale[scale > -5] = -5
+                attributes = np.concatenate((xyz, normals, color, opacities, scale, rotation), axis=1)
+                elements[:] = list(map(tuple, attributes))
+                el = PlyElement.describe(elements, 'vertex')
+                PlyData([el]).write(f"test_{idx}.ply")
+
+
+
+
+
+
                 render_novel = []
                 for b_i in range(B):
                     render_novel_i_0 = render(batch[f'novel_view{i}'], b_i, world_xyz[b_i], color_out[b_i], rot_out[b_i], scale_out[b_i], opacity_out[b_i], bg_color=cfg.mvsgs.bg_color)
@@ -138,6 +249,7 @@ class Network(nn.Module):
                 if cfg.save_ply:
                     result_dir = cfg.dir_ply
                     os.makedirs(result_dir, exist_ok = True)
+                    depth_origin = copy.deepcopy(depth)
                     depth = F.interpolate(depth.unsqueeze(1),size=(H,W)).squeeze(1)
                     for b_i in range(B):
                         scan_dir = os.path.join(result_dir, batch['meta']['scene'][b_i])
@@ -229,3 +341,5 @@ class Network(nn.Module):
             for b_i in range(B):
                 video_path = os.path.join(cfg.result_dir, '{}_{}_{}.mp4'.format(batch['meta']['scene'][b_i], batch['meta']['tar_view'][b_i].item(), batch['meta']['frame_id'][b_i].item()))
                 imageio.mimwrite(video_path, np.stack(pred_rgb_nb_list[b_i]), fps=10, quality=10)
+
+        return 0

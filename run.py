@@ -26,12 +26,14 @@ def run_network():
 
     data_loader = make_data_loader(cfg, is_train=False)
     total_time = 0
+    idx = 0
     for batch in tqdm.tqdm(data_loader):
         batch = to_cuda(batch)
         with torch.no_grad():
             torch.cuda.synchronize()
             start = time.time()
-            network(batch)
+            gs_scene = network(batch,idx)
+            idx += 1
             torch.cuda.synchronize()
             total_time += time.time() - start
     print(total_time / len(data_loader))

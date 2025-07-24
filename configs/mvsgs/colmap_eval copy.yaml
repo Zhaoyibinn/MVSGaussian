@@ -8,9 +8,8 @@ mvsgs:
     reweighting: True
     scale_factor: 12
     cas_config:
-        render_if: [False,True]
-        volume_planes: [16,8]
-    train_input_views: [1,2,3]
+        render_if: [True]
+        volume_planes: [8]
 
 # train_dataset:
 #     data_root: 'dtu_data/dtu_colmap'
@@ -29,18 +28,18 @@ mvsgs:
 #     # scene: ''
 
 train_dataset:
-    data_root: 'data/SPARSE'
+    data_root: 'data'
     split: 'train'
     scene: scan24
-    input_h_w: [480, 640]
+    input_h_w: [1162, 1554]
     input_ratio: 2.
     # scene: ''
 
 test_dataset:
-    data_root: 'data/SPARSE'
+    data_root: 'data'
     split: 'test'
     scene: scan24
-    input_h_w: [480, 640]
+    input_h_w: [1162, 1554]
     input_ratio: 2.
     # scene: ''
 

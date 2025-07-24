@@ -188,11 +188,7 @@ parser.add_argument("--type", type=str, default="")
 parser.add_argument('--det', type=str, default='')
 parser.add_argument('--local_rank', type=int, default=0)
 parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
-args = parser.parse_args()
-
-
-
-
-if len(args.type) > 0:
+args_any = parser.parse_args()
+if len(args_any.type) > 0:
     cfg.task = "run"
-cfg = make_cfg(args)
+cfg_any = make_cfg(args_any)

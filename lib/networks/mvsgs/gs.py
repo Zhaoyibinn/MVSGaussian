@@ -105,7 +105,8 @@ class GS(nn.Module):
         
         # world_xyz
         weights = weights.reshape(B,H,W,d).permute(0,3,1,2)
-        depth = torch.sum(weights * depth, 1) # B H W
+        # depth = torch.sum(weights * depth, 1) # B H W
+        depth = depth[0]
         ext = batch['tar_ext']
         ixt = batch['tar_ixt'].clone()
         ixt[:,:2] *= cfg.mvsgs.cas_config.render_scale[level]

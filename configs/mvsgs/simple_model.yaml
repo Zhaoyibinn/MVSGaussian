@@ -1,6 +1,6 @@
 task: mvsgs
 gpus: [0]
-exp_name: 'dtu_pretrain'
+exp_name: 'any'
 
 
 # module
@@ -48,21 +48,18 @@ mvsgs:
 
 
 train_dataset:
-    data_root: 'data'
+    data_root: 'any' 
+    ann_file: 'any'
+    scene:  any
     split: 'train'
-    ann_file: 'data/mvsgs/dtu_val_all.txt'
-    scene: scan24
-    input_h_w: [1162, 1554]
-    input_ratio: 2.
+    input_ratio: 1.
 
 test_dataset:
-    data_root: 'data'
-    split: 'train'
-    ann_file: 'data/mvsgs/dtu_val_all.txt'
-    scene: scan24
-    input_h_w: [1162, 1554]
-    input_ratio: 2.
-    
+    data_root: 'any' 
+    ann_file: 'any'
+    scene:  any
+    split: 'test'
+    input_ratio: 1.
 
 train:
     batch_size: 1

@@ -65,13 +65,32 @@ class Dataset:
             self.scene_infos[scene] = scene_info
 
             cam_points = np.array([np.linalg.inv(scene_info['exts'][i])[:3, 3] for i in train_ids])
-            for tar_view in test_ids:
+
+            
+            whole_index = range(len(scene_info['exts']))
+            whole_cam_points = np.array([np.linalg.inv(scene_info['exts'][i])[:3, 3] for i in whole_index])
+
+            # for tar_view in test_ids:
+            # # for tar_view in whole_index:
+            #     cam_point = np.linalg.inv(scene_info['exts'][tar_view])[:3, 3]
+            #     distance = np.linalg.norm(cam_points - cam_point[None], axis=-1)
+            #     argsorts = distance.argsort()
+            #     argsorts = argsorts[1:] if tar_view in train_ids else argsorts
+            #     input_views_num = cfg.mvsgs.train_input_views[1] + 1 if self.split == 'train' else cfg.mvsgs.test_input_views
+            #     src_views = [train_ids[i] for i in argsorts[:input_views_num]]
+            #     self.metas += [(scene, tar_view, src_views)]
+
+
+            # for tar_view in test_ids:
+            for tar_view in whole_index:
                 cam_point = np.linalg.inv(scene_info['exts'][tar_view])[:3, 3]
-                distance = np.linalg.norm(cam_points - cam_point[None], axis=-1)
+                distance = np.linalg.norm(whole_cam_points - cam_point[None], axis=-1)
                 argsorts = distance.argsort()
-                argsorts = argsorts[1:] if tar_view in train_ids else argsorts
-                input_views_num = cfg.mvsgs.train_input_views[1] + 1 if self.split == 'train' else cfg.mvsgs.test_input_views
-                src_views = [train_ids[i] for i in argsorts[:input_views_num]]
+                # argsorts = argsorts[1:] if tar_view in train_ids else argsorts
+                input_views_num = 3
+                # print(tar_view)
+                src_views = [whole_index[i] for i in argsorts[:input_views_num]]
+                
                 self.metas += [(scene, tar_view, src_views)]
 
     def __getitem__(self, index_meta):

@@ -229,8 +229,40 @@ class Dataset:
     def read_image(self, scene, view_idx):
         image_path = os.path.join(self.data_root, scene['scene_name'], 'images', scene['image_names'][view_idx])
         img = (np.array(imageio.imread(image_path))).astype(np.float32)
+        img = img[:,:,:3]
         orig_size = img.shape[:2][::-1]
-        img = cv2.resize(img, self.input_h_w[::-1], interpolation=cv2.INTER_AREA)
+        # img = cv2.resize(img, self.input_h_w[::-1], interpolation=cv2.INTER_AREA)
+
+        original_width , original_height = img.shape[1] , img.shape[0]
+        target_width , target_height = self.input_h_w[::-1][0] , self.input_h_w[::-1][1]
+
+        original_ratio = original_width / original_height
+        target_ratio = target_width / target_height
+        if original_ratio > target_ratio:
+            # 原始图像更宽，按高度缩放
+            scale = target_height / original_height
+            new_width = int(original_width * scale)
+            new_height = target_height
+        else:
+            # 原始图像更高，按宽度缩放
+            scale = target_width / original_width
+            new_width = target_width
+            new_height = int(original_height * scale)
+        img = cv2.resize(
+            img, 
+            (new_width, new_height), 
+            interpolation=cv2.INTER_AREA  # 缩小用INTER_AREA效果好
+        )
+
+        start_x = (new_width - target_width) // 2
+        start_y = (new_height - target_height) // 2
+
+        img = img[
+            start_y:start_y + target_height,
+            start_x:start_x + target_width
+        ]
+
+
         return np.array(img), orig_size
 
     def __len__(self):
