@@ -1,6 +1,19 @@
 from lib.config import cfg, args
 import numpy as np
 from fusion import fusion
+from lib.networks.mvsgs.network import Network 
+from plyfile import PlyData, PlyElement
+
+def save_gsscene_ply(gs_scene_data,dtype_full,save_path):
+    elements = np.empty(gs_scene_data.shape[0], dtype=dtype_full)
+    attributes = gs_scene_data
+    elements[:] = list(map(tuple, attributes))
+    el = PlyElement.describe(elements, 'vertex')
+    PlyData([el]).write(save_path)
+    print(f"Ply saved to {save_path}")
+    
+    
+
 
 def run_dataset():
     from lib.datasets import make_data_loader
@@ -20,22 +33,32 @@ def run_network():
     import torch
     import time
 
-    network = make_network(cfg).cuda()
+    network:Network = make_network(cfg).cuda()
     load_network(network, cfg.trained_model_dir, epoch=cfg.test.epoch)
     network.eval()
 
     data_loader = make_data_loader(cfg, is_train=False)
     total_time = 0
     idx = 0
+    whole_gs_scene = []
+    dtype_full = None
+    
     for batch in tqdm.tqdm(data_loader):
         batch = to_cuda(batch)
         with torch.no_grad():
             torch.cuda.synchronize()
             start = time.time()
-            gs_scene = network(batch,idx)
+            _,gs_scene = network(batch,idx)
+            whole_gs_scene.append(gs_scene['data'])
+            dtype_full = gs_scene['dtype_full']
             idx += 1
             torch.cuda.synchronize()
             total_time += time.time() - start
+    final_GS_scene = np.concatenate(whole_gs_scene, axis=0)
+    save_gsscene_ply(final_GS_scene,dtype_full,"test.ply")
+
+
+
     print(total_time / len(data_loader))
 
 def run_evaluate():

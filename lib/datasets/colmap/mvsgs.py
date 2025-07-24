@@ -49,6 +49,17 @@ class Dataset:
             depth_ranges = pose_bounds[:, -2:]
             scene_info = {'ixts': ixts.astype(np.float32), 'c2ws': c2ws.astype(np.float32), 'image_names': img_paths, 'depth_ranges': depth_ranges.astype(np.float32)}
             scene_info['scene_name'] = scene
+
+
+            depth_dust3r_path = os.path.join(self.data_root,scene,'depth_dust3r')
+            depth_dust3r_imgs = []
+            if os.path.exists(depth_dust3r_path):
+                for depth_dust3r_img in sorted(os.listdir(depth_dust3r_path)):
+                    depth_dust3r_imgs.append(cv2.imread(os.path.join(depth_dust3r_path,depth_dust3r_img),cv2.IMREAD_ANYDEPTH))
+            assert len(depth_dust3r_imgs) == len(img_paths) ,"图像数量和Dust3R深度图数量不一致 请检查"
+            
+            self.depth_dust3r_imgs = depth_dust3r_imgs
+
             self.scene_infos[scene] = scene_info
             img_len = len(img_paths)
             ### set your own train_ids and render_ids
@@ -116,6 +127,10 @@ class Dataset:
                'src_ixts': src_ixts}
         ret.update({'tar_ext': tar_ext,
                     'tar_ixt': tar_ixt})
+        # ret.update({'img_name': self.scene_infos[scene]['image_names'][index]})
+
+
+
         if self.split != 'train':
             ret.update({'tar_img': tar_img,
                         'tar_mask': tar_mask})
@@ -126,7 +141,7 @@ class Dataset:
         # near_far = scene_info['depth_ranges'][tar_view]
         ret.update({'near_far': np.array(near_far).astype(np.float32)})
         ret.update({'meta': {'scene': scene, 'tar_view': tar_view, 'frame_id': 0}})
-
+        ret.update({'depth_dust3r': self.depth_dust3r_imgs[index]})
         for i in range(cfg.mvsgs.cas_config.num):
             rays, rgb, msk = mvsgs_utils.build_rays(tar_img, tar_ext, tar_ixt, tar_mask, i, self.split)
             ret.update({f'rays_{i}': rays, f'rgb_{i}': rgb.astype(np.float32), f'msk_{i}': msk})

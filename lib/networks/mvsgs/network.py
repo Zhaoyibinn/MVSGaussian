@@ -119,10 +119,10 @@ class Network(nn.Module):
                 img_origin = cv2.resize(img_origin,(depth.shape[2],depth.shape[1]))
 
 
-                depth_path = f"data/SPARSE/scan24/depth_dust3r/{idx:04d}.tiff"
-                depth_dust3r = cv2.imread(depth_path,cv2.IMREAD_ANYDEPTH)
+                # depth_path = f"data/SPARSE/scan24/depth_dust3r/{idx:04d}.tiff"
+                # depth_dust3r = cv2.imread(depth_path,cv2.IMREAD_ANYDEPTH)
                 # img = cv2.resize(img, self.input_h_w[::-1], interpolation=cv2.INTER_AREA)
-
+                depth_dust3r = batch['depth_dust3r'][0].cpu().detach().numpy()
                 original_width , original_height = depth_dust3r.shape[1] , depth_dust3r.shape[0]
                 target_width , target_height = depth.shape[2] , depth.shape[1]
 
@@ -218,9 +218,13 @@ class Network(nn.Module):
                 elements = np.empty(xyz.shape[0], dtype=dtype_full)
                 scale[scale > -5] = -5
                 attributes = np.concatenate((xyz, normals, color, opacities, scale, rotation), axis=1)
-                elements[:] = list(map(tuple, attributes))
-                el = PlyElement.describe(elements, 'vertex')
-                PlyData([el]).write(f"test_{idx}.ply")
+                # elements[:] = list(map(tuple, attributes))
+                # el = PlyElement.describe(elements, 'vertex')
+                # PlyData([el]).write(f"test_{idx}.ply")
+
+                GS_scene = {}
+                GS_scene["data"] = attributes
+                GS_scene['dtype_full'] = dtype_full
 
 
 
@@ -284,7 +288,7 @@ class Network(nn.Module):
                         rendered_depth_vis = rendered_depth_vis.permute(1,2,0).detach().cpu().numpy()
                         depth_vis_path = os.path.join(depth_dir, '{}_{}_{}.png'.format(batch['meta']['scene'][b_i], batch['meta']['tar_view'][b_i].item(), batch['meta']['frame_id'][b_i].item()))
                         imageio.imwrite(depth_vis_path, (rendered_depth_vis*255.).astype(np.uint8))
-            return ret
+            return ret , GS_scene
         else:
             pred_rgb_nb_list = []
             for v_i, meta in enumerate(batch['rendering_video_meta']):
@@ -342,4 +346,3 @@ class Network(nn.Module):
                 video_path = os.path.join(cfg.result_dir, '{}_{}_{}.mp4'.format(batch['meta']['scene'][b_i], batch['meta']['tar_view'][b_i].item(), batch['meta']['frame_id'][b_i].item()))
                 imageio.mimwrite(video_path, np.stack(pred_rgb_nb_list[b_i]), fps=10, quality=10)
 
-        return 0
