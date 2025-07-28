@@ -9,6 +9,7 @@ import time
 from lib.config.config import cfg
 from torch.utils.data import DataLoader, ConcatDataset
 import cv2
+from lib.datasets.colmap.mvsgs import Dataset
 cv2.setNumThreads(1)
 
 
@@ -35,8 +36,9 @@ def make_dataset(cfg, is_train=True):
         args = cfg.test_dataset
         module = cfg.test_dataset_module
         path = cfg.test_dataset_path
-    dataset = imp.load_source(module, path).Dataset
-    dataset = dataset(**args)
+    # dataset = imp.load_source(module, path).Dataset
+    dataset = Dataset(**args)
+    # dataset = dataset(**args)
     return dataset
 
 

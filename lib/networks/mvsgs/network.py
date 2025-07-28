@@ -171,8 +171,8 @@ class Network(nn.Module):
                 if not cfg.mvsgs.cas_config.render_if[i]:
                     continue
 
-                # depth = depth_dust3r_torch_align
-                # std = std_dust3r
+                depth = depth_dust3r_torch_align
+                std = std_dust3r
 
 
                 rays = utils.build_rays(depth, std, batch, self.training, near_far, i)

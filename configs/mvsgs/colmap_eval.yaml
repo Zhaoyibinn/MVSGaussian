@@ -29,7 +29,7 @@ mvsgs:
 #     # scene: ''
 
 train_dataset:
-    data_root: 'data/SPARSE'
+    data_root: '/home/zhaoyibin/3DRE/3DGS/FatesGS/DTU/set_23_24_33'
     split: 'train'
     scene: scan24
     input_h_w: [480, 640]
@@ -37,7 +37,7 @@ train_dataset:
     # scene: ''
 
 test_dataset:
-    data_root: 'data/SPARSE'
+    data_root: '/home/zhaoyibin/3DRE/3DGS/FatesGS/DTU/set_23_24_33'
     split: 'test'
     scene: scan24
     input_h_w: [480, 640]

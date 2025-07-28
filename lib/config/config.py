@@ -7,7 +7,7 @@ from . import yacs
 
 cfg = CN()
 
-os.environ['workspace'] = "."
+os.environ['workspace'] = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 cfg.workspace = os.environ['workspace']
 print('Workspace: ', cfg.workspace)
 
@@ -161,9 +161,15 @@ def parse_cfg(cfg, args):
         cfg[module.replace('_module', '_path')] = cfg[module].replace('.', '/') + '.py'
 
 def make_cfg(args):
+    
     def merge_cfg(cfg_file, cfg):
-        with open(cfg_file, 'r') as f:
-            current_cfg = yacs.load_cfg(f)
+        root_path =  os.path.dirname( os.path.dirname( os.path.dirname(os.path.abspath(__file__))))
+        try:
+            with open(cfg_file, 'r') as f:
+                current_cfg = yacs.load_cfg(f)
+        except:
+            with open(os.path.join(root_path,cfg_file), 'r') as f:
+                current_cfg = yacs.load_cfg(f)
         if 'parent_cfg' in current_cfg.keys():
             cfg = merge_cfg(current_cfg.parent_cfg, cfg)
             cfg.merge_from_other_cfg(current_cfg)
@@ -182,13 +188,21 @@ def make_cfg(args):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--cfg_file", default="configs/mvsgs/dtu_pretrain.yaml", type=str)
-parser.add_argument('--test', action='store_true', dest='test', default=False)
-parser.add_argument("--type", type=str, default="")
-parser.add_argument('--det', type=str, default='')
-parser.add_argument('--local_rank', type=int, default=0)
-parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
-args = parser.parse_args()
+# parser.add_argument("--cfg_file", default="configs/mvsgs/colmap_eval.yaml", type=str)
+# parser.add_argument('--test', action='store_true', dest='test', default=False)
+# parser.add_argument("--type", type=str, default="")
+# parser.add_argument('--det', type=str, default='')
+# parser.add_argument('--local_rank', type=int, default=0)
+# parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
+# args = parser.parse_args()
+args = argparse.Namespace()
+args.cfg_file = "configs/mvsgs/colmap_eval.yaml"
+args.test = False
+args.type = ""
+args.det = ''
+args.local_rank = 0
+args.opts = []
+
 
 
 
