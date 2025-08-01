@@ -211,13 +211,17 @@ class Network(nn.Module):
                     l.append('scale_{}'.format(ii))
                 for ii in range(4):
                     l.append('rot_{}'.format(ii))
+                l.append('red')
+                l.append('green')
+                l.append('blue')
+
 
                 dtype_full = [(attribute, 'f4') for attribute in l]
 
 
                 elements = np.empty(xyz.shape[0], dtype=dtype_full)
                 scale[scale > -5] = -5
-                attributes = np.concatenate((xyz, normals, color, opacities, scale, rotation), axis=1)
+                attributes = np.concatenate((xyz, normals, color, opacities, scale, rotation,color_out.squeeze().detach().cpu().numpy()), axis=1)
                 # elements[:] = list(map(tuple, attributes))
                 # el = PlyElement.describe(elements, 'vertex')
                 # PlyData([el]).write(f"test_{idx}.ply")

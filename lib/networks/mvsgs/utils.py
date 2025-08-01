@@ -607,7 +607,7 @@ def get_img_feat(xyz, img_feat_rgb, batch, training, level):# B * N * S * (11+4)
 
         tar_diff = tar_diff / (torch.norm(tar_diff, dim=-1, keepdim=True) + 1e-6)
         src_diff = src_diff / (torch.norm(src_diff, dim=-1, keepdim=True) + 1e-6)
-        # 归一化
+        # 归一化 表示了广信到三维点的方向
 
         ray_diff = tar_diff - src_diff
         ray_diff_norm = torch.norm(ray_diff, dim=-1, keepdim=True)
